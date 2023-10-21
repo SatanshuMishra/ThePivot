@@ -87,7 +87,6 @@ export async function POST(req: Request) {
         data[operationRow][j],
         factor,
       )
-      const temp2 = FractionOperations.addFractions(data[i][j], temp)
       data[i][j] = FractionOperations.addFractions(data[i][j], temp)
     }
   }
