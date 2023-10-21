@@ -104,3 +104,10 @@ export function fractionToString(f: Fraction) {
 
   return `(${f.numerator}${f.denominator !== 1 ? '/' + f.denominator : ''})`
 }
+
+export function createEmptyStringArray(
+  rows: number,
+  columns: number,
+): string[][] {
+  return Array.from({ length: rows }, () => Array(columns).fill(''))
+}
