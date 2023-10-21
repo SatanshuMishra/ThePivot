@@ -94,5 +94,19 @@ export async function POST(req: Request) {
 
   fractionTableToString(data)
 
-  return NextResponse.json({})
+  const newBasisIndices = basicIndices
+    .map((index) => (index == pivot.fromIndex ? pivot.toIndex : index))
+    .sort()
+
+  const newParameterIndices = parameterIndices
+    .map((index) => (index == pivot.toIndex ? pivot.fromIndex : index))
+    .sort()
+
+  const result = {
+    data: data,
+    parameterIndices: newParameterIndices,
+    basisIndices: newBasisIndices,
+  }
+
+  return NextResponse.json(result)
 }
