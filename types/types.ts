@@ -1,14 +1,9 @@
-export interface TableaOperation extends Tablea {
-  pivot: {
-    fromIndex: number
-    toIndex: number
-  }
-}
-
-export interface Tablea {
+export interface TableauOperation {
   data: Fraction[][]
-  parameterIndices: number[]
-  basicIndices: number[]
+  pivot: {
+    rowIndex: number
+    columnIndex: number
+  }
 }
 
 export interface Fraction {

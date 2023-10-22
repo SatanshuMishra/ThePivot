@@ -13,7 +13,7 @@ export class FractionOperations {
     const numeratorSum =
       f1.numerator * f2.denominator + f2.numerator * f1.denominator
 
-    return this.simplifyFraction({
+    return this.formatFraction({
       numerator: numeratorSum,
       denominator: commonDenominator,
     })
@@ -24,12 +24,12 @@ export class FractionOperations {
       numerator: f1.numerator * f2.numerator,
       denominator: f1.denominator * f2.denominator,
     }
-    return this.simplifyFraction(result)
+    return this.formatFraction(result)
   }
 
   static divideFractions(f1: Fraction, f2: Fraction) {
     const inverseF2 = this.getInverse(f2)
-    return this.simplifyFraction(this.multiplyFractions(f1, inverseF2))
+    return this.formatFraction(this.multiplyFractions(f1, inverseF2))
   }
 
   static getInverse(f: Fraction) {
@@ -37,7 +37,7 @@ export class FractionOperations {
       numerator: f.denominator,
       denominator: f.numerator,
     }
-    return this.simplifyFraction(result)
+    return this.formatFraction(result)
   }
 
   static simplifyFraction(f: Fraction) {
@@ -61,6 +61,27 @@ export class FractionOperations {
       numerator: f.denominator,
       denominator: f.numerator % f.denominator,
     })
+  }
+
+  static swapNegativeFractionFormat(f: Fraction) {
+    if (f.numerator >= 0 && f.denominator < 0) {
+      return {
+        numerator: -f.numerator,
+        denominator: -f.denominator,
+      }
+    } else {
+      return {
+        numerator: f.numerator,
+        denominator: f.denominator,
+      }
+    }
+  }
+
+  static formatFraction(f: Fraction) {
+    var formattedFraction = this.simplifyFraction(f)
+    formattedFraction = this.swapNegativeFractionFormat(formattedFraction)
+
+    return formattedFraction
   }
 }
 
@@ -110,4 +131,14 @@ export function createEmptyStringArray(
   columns: number,
 ): string[][] {
   return Array.from({ length: rows }, () => Array(columns).fill(''))
+}
+
+export function formatNumberOrFraction(f: Fraction) {
+  if (f.denominator === 1) {
+    // If the denominator is 1, it's a whole number
+    return f.numerator.toString()
+  } else {
+    // Otherwise, it's a fraction
+    return `${f.numerator}/${f.denominator}`
+  }
 }

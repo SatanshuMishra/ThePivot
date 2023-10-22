@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { redirect } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import axios from 'axios'
 
 import { Input } from '@/components/ui/input'
 import {
@@ -17,6 +18,7 @@ import {
 } from '@/components/ui/form'
 import { Button } from '@/components/ui/button'
 import { createEmptyStringArray } from '@/lib/utils'
+import { Separator } from '@/components/ui/separator'
 
 const tableDataFormSchema = z.object({
   rows: z.coerce.number().int().min(2),
@@ -26,21 +28,19 @@ const tableDataFormSchema = z.object({
 const tableauFormSchema = z.object({
   data: z.array(
     z.array(
-      z.custom((value: any) => {
-        if (/^\d+$/.test(value)) {
-          // It's a whole number
-          return value
-        } else if (/^\d+\/\d+$/.test(value)) {
-          // It's a fraction
-          const [numerator, denominator] = value.split('/').map(Number)
-          if (denominator === 0) {
-            return 'Invalid input. Denominator cannot be zero.'
-          }
-          return value
-        } else {
-          return 'Invalid input. Please enter a valid whole number or a fraction in the form of "numerator/denominator".'
-        }
-      }),
+      z.string().refine(
+        (value) => {
+          return (
+            /^-?\d+$/.test(value) ||
+            (/^-?\d+\/\d+$/.test(value) &&
+              value.split('/').map(Number)[1] !== 0)
+          )
+        },
+        {
+          message:
+            'Invalid input. Please enter a valid number (positive or negative) or a fraction with a non-zero denominator.',
+        },
+      ),
     ),
   ),
 })
@@ -51,28 +51,53 @@ type tableauFormValues = z.infer<typeof tableauFormSchema>
 const Home = () => {
   const [data, setData] = useState(createEmptyStringArray(2, 2))
   const [loading, setLoading] = useState(false)
+  const [editing, setEditing] = useState(true)
 
   const tableDataForm = useForm<tableDataFormValues>({
     resolver: zodResolver(tableDataFormSchema),
     defaultValues: {
-      rows: 2,
-      columns: 2,
+      rows: 3,
+      columns: 6,
     },
   })
 
   const tableauForm = useForm<tableauFormValues>({
     resolver: zodResolver(tableauFormSchema),
     defaultValues: {
-      data: createEmptyStringArray(2, 2),
+      data: [
+        ['2', '6', '1', '0', '0', '700'],
+        ['4', '5', '0', '1', '0', '810'],
+        ['-20', '10', '0', '0', '1', '0'],
+      ],
     },
   })
 
-  const onTableFormSubmit = async (data: tableDataFormValues) => {
+  const parseNumberOrFraction = (str: string) => {
+    if (/^-?\d+$/.test(str)) {
+      // If the input is a whole number (positive or negative)
+      return {
+        numerator: parseInt(str, 10),
+        denominator: 1,
+      }
+    } else if (/^-?\d+\/\d+$/.test(str)) {
+      // If the input is a fraction (positive or negative)
+      const [numerator, denominator] = str.split('/').map(Number)
+      return {
+        numerator,
+        denominator,
+      }
+    } else {
+      // Invalid input, you can handle this case as needed
+      return null
+    }
+  }
+
+  const onTableFormSubmit = async (formData: tableDataFormValues) => {
     try {
       setLoading(true)
       tableauForm.setValue(
         'data',
-        createEmptyStringArray(data.rows, data.columns),
+        createEmptyStringArray(formData.rows, formData.columns),
       )
     } catch (error) {
     } finally {
@@ -80,111 +105,202 @@ const Home = () => {
     }
   }
 
-  const onTableauFormSubmit = async (data: tableauFormValues) => {
+  const onTableauFormSubmit = async (formData: tableauFormValues) => {
     try {
       setLoading(true)
+      setEditing(false)
+
+      tableauFormSchema.parse(formData)
+
+      setData(formData.data as string[][])
     } catch (error) {
+      console.log(error)
     } finally {
       setLoading(false)
     }
   }
 
+  const onPivot = async (rowIndex: number, columnIndex: number) => {
+    try {
+      setLoading(true)
+      const parsedData = data.map((row) =>
+        row.map((cell) => parseNumberOrFraction(cell)),
+      )
+
+      const body = {
+        data: parsedData,
+        pivot: {
+          rowIndex,
+          columnIndex,
+        },
+      }
+
+      console.log(body)
+      const response: any = await axios.post(`/api/calculate`, body)
+      setData(response.data.data)
+    } catch (error) {
+      console.log(error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const checkError = (rowIndex: number, columnIndex: number) => {
+    if (
+      tableauFormErrors &&
+      tableauFormErrors[rowIndex] &&
+      tableauFormErrors[rowIndex][columnIndex] &&
+      tableauFormErrors[rowIndex][columnIndex].message
+    ) {
+      return true
+    }
+    return false
+  }
+
+  const tableauFormErrors: any = tableauForm.formState.errors.data
+
   return (
-    <div>
-      <Form {...tableDataForm}>
-        <form
-          onSubmit={tableDataForm.handleSubmit(onTableFormSubmit)}
-          className="w-full space-y-8"
-        >
-          <div className="flex items-end justify-center gap-4">
-            <FormField
-              control={tableDataForm.control}
-              name="rows"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Rows</FormLabel>
-                  <FormControl>
-                    <Input
-                      disabled={loading}
-                      placeholder="Table rows"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={tableDataForm.control}
-              name="columns"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Columns</FormLabel>
-                  <FormControl>
-                    <Input
-                      disabled={loading}
-                      placeholder="Table Columns"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button disabled={loading} className="" type="submit">
-              Create Table
-            </Button>
-          </div>
-        </form>
-      </Form>
-      <Form {...tableauForm}>
-        <form
-          onSubmit={tableauForm.handleSubmit(onTableauFormSubmit)}
-          className="w-full space-y-8"
-        >
-          {Array.from(
-            { length: tableauForm.getValues('data').length },
-            (_, index) => index,
-          ).map((rowIndex) => (
-            <div key={rowIndex} className="flex">
-              {Array.from(
-                { length: tableauForm.getValues('data')[0].length },
-                (_, index) => index,
-              ).map((columnIndex) => (
-                <FormField
-                  key={`field-${rowIndex}-${columnIndex}`}
-                  control={tableauForm.control}
-                  name="data"
-                  render={({ field }: { field: any }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input
-                          value={field.value[rowIndex][columnIndex]}
-                          disabled={loading}
-                          placeholder={`Row: ${rowIndex}, Column: ${columnIndex}`}
-                          onChange={(e) => {
-                            const newData = [...field.value]
-                            newData[rowIndex][columnIndex] = e.target.value
-                            field.onChange(newData)
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage>
-                        {tableauForm.formState.errors.data &&
-                          tableauForm.formState.errors.data.message}
-                      </FormMessage>
-                    </FormItem>
-                  )}
-                />
-              ))}
+    <>
+      <div className="p-3">
+        <h1 className="text-3xl font-bold">The Pivot</h1>
+      </div>
+      <Separator className="mb-3" />
+      <div className="m-auto flex w-fit max-w-screen-2xl flex-col gap-10">
+        <Form {...tableDataForm}>
+          <form
+            onSubmit={tableDataForm.handleSubmit(onTableFormSubmit)}
+            className="w-full space-y-8"
+          >
+            <div className="flex items-end justify-center gap-4">
+              <FormField
+                control={tableDataForm.control}
+                name="rows"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Rows</FormLabel>
+                    <FormControl>
+                      <Input
+                        disabled={loading}
+                        placeholder="Table rows"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={tableDataForm.control}
+                name="columns"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Columns</FormLabel>
+                    <FormControl>
+                      <Input
+                        disabled={loading}
+                        placeholder="Table Columns"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button disabled={loading} className="" type="submit">
+                Create Table
+              </Button>
             </div>
-          ))}
-          <Button disabled={loading} className="" type="submit">
-            Pivot
-          </Button>
-        </form>
-      </Form>
-    </div>
+          </form>
+        </Form>
+        {editing ? (
+          <Form {...tableauForm}>
+            <form
+              onSubmit={tableauForm.handleSubmit(onTableauFormSubmit)}
+              className="w-full pt-2"
+            >
+              <div className="flex w-full flex-col items-center justify-center">
+                {Array.from(
+                  { length: tableauForm.getValues('data').length },
+                  (_, index) => index,
+                ).map((rowIndex) => (
+                  <div key={rowIndex} className="mb-4 flex gap-4">
+                    {Array.from(
+                      { length: tableauForm.getValues('data')[0].length },
+                      (_, index) => index,
+                    ).map((columnIndex) => (
+                      <FormField
+                        key={`field-${rowIndex}-${columnIndex}`}
+                        control={tableauForm.control}
+                        name="data"
+                        render={({ field }: { field: any }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input
+                                className={`${
+                                  checkError(rowIndex, columnIndex)
+                                    ? 'border-red-400 focus-visible:ring-red-600'
+                                    : ''
+                                } max-w-[100px]`}
+                                value={field.value[rowIndex][columnIndex]}
+                                disabled={loading}
+                                placeholder={`Row: ${rowIndex}, Column: ${columnIndex}`}
+                                onChange={(e) => {
+                                  const newData = [...field.value]
+                                  newData[rowIndex][columnIndex] =
+                                    e.target.value
+                                  field.onChange(newData)
+                                }}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+              <div className="flex w-full items-center justify-center">
+                <Button disabled={loading} className="" type="submit">
+                  Begin Pivot
+                </Button>
+              </div>
+            </form>
+          </Form>
+        ) : (
+          <div className="flex w-full flex-col gap-2">
+            <table className="max-w-screen-lg table-auto">
+              <tbody>
+                {data.map((row, rowIndex) => (
+                  <tr key={rowIndex}>
+                    {row.map((cell, columnIndex) => (
+                      <td key={columnIndex} className="p-2">
+                        <Button
+                          onClick={() => onPivot(rowIndex, columnIndex)}
+                          className="w-full" // Adjust the width as needed
+                          disabled={data[rowIndex][columnIndex] === '0'}
+                          variant={`${
+                            data[rowIndex][columnIndex] === '0'
+                              ? 'secondary'
+                              : 'outline'
+                          }`}
+                        >
+                          {data[rowIndex][columnIndex]}
+                        </Button>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="flex w-full items-center justify-center">
+              <Button disabled={loading} onClick={() => setEditing(true)}>
+                Edit Tableau
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   )
 }
 
