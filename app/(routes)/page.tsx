@@ -145,6 +145,11 @@ const Home = () => {
     }
   }
 
+  const onEdit = () => {
+    tableauForm.setValue('data', data)
+    setEditing(true)
+  }
+
   const checkError = (rowIndex: number, columnIndex: number) => {
     if (
       tableauFormErrors &&
@@ -293,7 +298,7 @@ const Home = () => {
               </tbody>
             </table>
             <div className="flex w-full items-center justify-center">
-              <Button disabled={loading} onClick={() => setEditing(true)}>
+              <Button disabled={loading} onClick={onEdit}>
                 Edit Tableau
               </Button>
             </div>
