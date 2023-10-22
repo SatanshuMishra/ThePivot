@@ -142,3 +142,12 @@ export function formatNumberOrFraction(f: Fraction) {
     return `${f.numerator}/${f.denominator}`
   }
 }
+
+export function isEmptyObject(obj: any) {
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      return false // Object has at least one property
+    }
+  }
+  return true // Object is empty
+}

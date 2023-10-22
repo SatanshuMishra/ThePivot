@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { redirect } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { toast } from 'react-hot-toast'
 import axios from 'axios'
 
 import { Input } from '@/components/ui/input'
@@ -17,7 +18,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Button } from '@/components/ui/button'
-import { createEmptyStringArray } from '@/lib/utils'
+import { createEmptyStringArray, isEmptyObject } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
 
 const tableDataFormSchema = z.object({
@@ -92,6 +93,22 @@ const Home = () => {
     }
   }
 
+  const handleGenericSubmitForm = async (
+    e: any,
+    form: any,
+    submitFunction: any,
+    message: string = 'Invalid data.',
+  ) => {
+    e.preventDefault()
+
+    if (isEmptyObject(form.formState.errors)) {
+      // Validation passed, proceed with form submission
+      form.handleSubmit(submitFunction)(e)
+    } else {
+      toast.error(message)
+    }
+  }
+
   const onTableFormSubmit = async (formData: tableDataFormValues) => {
     try {
       setLoading(true)
@@ -100,6 +117,8 @@ const Home = () => {
         createEmptyStringArray(formData.rows, formData.columns),
       )
     } catch (error) {
+      toast.error('Something went wrong.')
+      console.log(error)
     } finally {
       setLoading(false)
     }
@@ -110,11 +129,10 @@ const Home = () => {
       setLoading(true)
       setEditing(false)
 
-      tableauFormSchema.parse(formData)
-
       setData(formData.data as string[][])
     } catch (error) {
       console.log(error)
+      toast.error('Something went wrong.')
     } finally {
       setLoading(false)
     }
@@ -135,11 +153,11 @@ const Home = () => {
         },
       }
 
-      console.log(body)
       const response: any = await axios.post(`/api/calculate`, body)
       setData(response.data.data)
     } catch (error) {
       console.log(error)
+      toast.error('Something went wrong.')
     } finally {
       setLoading(false)
     }
@@ -173,7 +191,9 @@ const Home = () => {
       <div className="m-auto flex w-fit max-w-screen-2xl flex-col gap-10">
         <Form {...tableDataForm}>
           <form
-            onSubmit={tableDataForm.handleSubmit(onTableFormSubmit)}
+            onSubmit={(e) =>
+              handleGenericSubmitForm(e, tableDataForm, onTableFormSubmit)
+            }
             className="w-full space-y-8"
           >
             <div className="flex items-end justify-center gap-4">
@@ -220,7 +240,9 @@ const Home = () => {
         {editing ? (
           <Form {...tableauForm}>
             <form
-              onSubmit={tableauForm.handleSubmit(onTableauFormSubmit)}
+              onSubmit={(e) =>
+                handleGenericSubmitForm(e, tableauForm, onTableauFormSubmit)
+              }
               className="w-full pt-2"
             >
               <div className="flex w-full flex-col items-center justify-center">
